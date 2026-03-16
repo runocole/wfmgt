@@ -6,6 +6,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.utils import timezone
 from django.db.models import Sum, Count
 from datetime import date, timedelta, datetime, time
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from rest_framework.permissions import IsAdminUser
+import random
+import string
 from .models import (
     App, Subscription, StaffProfile, WorkLog, DailyMetric, Leave
 )
@@ -60,15 +66,33 @@ class RegisterView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+
 class LoginView(APIView):
-    """Login user"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
-        username = request.data.get('username')
+        # Accept either username or email
+        username_or_email = request.data.get('username') or request.data.get('email')
         password = request.data.get('password')
         
-        user = authenticate(username=username, password=password)
+        if not username_or_email or not password:
+            return Response(
+                {'error': 'Please provide username/email and password'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Try to find user by email first
+        user = None
+        if '@' in username_or_email:
+            # It's an email
+            try:
+                user_obj = User.objects.get(email=username_or_email)
+                user = authenticate(username=user_obj.username, password=password)
+            except User.DoesNotExist:
+                pass
+        else:
+            # It's a username
+            user = authenticate(username=username_or_email, password=password)
         
         if user:
             login(request, user)
@@ -247,14 +271,11 @@ class StaffProfileView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # -------------------- WORK LOGS --------------------
-
 class WorkLogListCreateView(generics.ListCreateAPIView):
-    """List all work logs for current user or create new"""
     serializer_class = WorkLogSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        # Filter by date if provided
         date_param = self.request.query_params.get('date')
         if date_param:
             return WorkLog.objects.filter(
@@ -267,7 +288,7 @@ class WorkLogListCreateView(generics.ListCreateAPIView):
     
     def perform_create(self, serializer):
         staff = StaffProfile.objects.get(user=self.request.user)
-        serializer.save(staff=staff)
+        serializer.save(staff=staff)  # This sets the staff automatically
 
 class WorkLogDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a work log"""
@@ -342,23 +363,38 @@ class StaffDashboardView(APIView):
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
         
-        # Get metrics in date range
-        metrics = DailyMetric.objects.filter(
+        # Get work logs in date range
+        logs_in_range = WorkLog.objects.filter(
             staff=staff,
             date__range=[start_date, end_date]
         )
         
-        total_days_worked = metrics.count()
-        total_hours_worked = sum(float(m.total_hours) for m in metrics)
-        expected_hours = days * float(staff.expected_hours_per_day)
+        # Calculate days worked (unique dates)
+        total_days_worked = logs_in_range.values('date').distinct().count()
+        
+        # Calculate total hours
+        total_hours_worked = sum(float(log.hours) for log in logs_in_range)
+        
+        # Count WORKING DAYS in the period (Mon-Fri)
+        working_days = 0
+        current = start_date
+        while current <= end_date:
+            # Monday = 0, Tuesday = 1, Wednesday = 2, Thursday = 3, Friday = 4
+            if current.weekday() < 5:  # 0-4 are weekdays
+                working_days += 1
+            current += timedelta(days=1)
+        
+        # Expected hours based on WORKING days only
+        expected_hours = working_days * float(staff.expected_hours_per_day)
         
         deficit = max(0, expected_hours - total_hours_worked)
         surplus = max(0, total_hours_worked - expected_hours)
-        attendance_rate = (total_days_worked / days * 100) if days > 0 else 0
-        avg_hours = total_hours_worked / days if days > 0 else 0
+        attendance_rate = (total_days_worked / working_days * 100) if working_days > 0 else 0
+        avg_hours = total_hours_worked / working_days if working_days > 0 else 0
         
         # Get recent logs
         recent_logs = WorkLog.objects.filter(staff=staff).order_by('-date', '-created_at')[:10]
+        recent_logs_serialized = WorkLogSerializer(recent_logs, many=True).data
         
         data = {
             'total_days_worked': total_days_worked,
@@ -368,16 +404,21 @@ class StaffDashboardView(APIView):
             'surplus': surplus,
             'attendance_rate': round(attendance_rate, 1),
             'average_hours_per_day': round(avg_hours, 1),
-            'recent_logs': WorkLogSerializer(recent_logs, many=True).data
+            'recent_logs': recent_logs_serialized
         }
         
-        serializer = StaffDashboardSerializer(data)
-        return Response(serializer.data)
-
+        return Response(data)
+    
+class StaffListView(generics.ListAPIView):
+    """Get list of all staff (accessible to all authenticated users)"""
+    serializer_class = StaffProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]  # Not just admin!
+    
+    def get_queryset(self):
+        return StaffProfile.objects.filter(is_active=True).select_related('user')
 # -------------------- LEAVE REQUESTS --------------------
 
 class LeaveListCreateView(generics.ListCreateAPIView):
-    """List or create leave requests"""
     serializer_class = LeaveSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -385,6 +426,7 @@ class LeaveListCreateView(generics.ListCreateAPIView):
         return Leave.objects.filter(staff__user=self.request.user).order_by('-created_at')
     
     def perform_create(self, serializer):
+        # This should automatically set the staff from the logged-in user
         staff = StaffProfile.objects.get(user=self.request.user)
         serializer.save(staff=staff, status='pending')
 
@@ -559,6 +601,9 @@ class AdminLeaveRequestsView(generics.ListAPIView):
         
         return queryset.order_by('-created_at')
 
+from datetime import time, timedelta
+from django.utils import timezone
+
 class AdminApproveLeaveView(APIView):
     """Admin: Approve or reject leave requests"""
     permission_classes = [permissions.IsAdminUser]
@@ -568,11 +613,16 @@ class AdminApproveLeaveView(APIView):
             leave = Leave.objects.get(id=leave_id, status='pending')
             action = request.data.get('action')  # 'approve' or 'reject'
             
-            if action == 'approve':
+            # Accept both 'approve' and 'approved' formats
+            if action in ['approve', 'approved']:
                 leave.status = 'approved'
                 leave.approved_by = request.user
                 leave.approved_at = timezone.now()
-            elif action == 'reject':
+                
+                # Auto-create work logs for leave days
+                self.create_leave_work_logs(leave)
+                
+            elif action in ['reject', 'rejected']:
                 leave.status = 'rejected'
             else:
                 return Response(
@@ -588,6 +638,57 @@ class AdminApproveLeaveView(APIView):
                 {'error': 'Leave request not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+    
+    def create_leave_work_logs(self, leave):
+        """Create work log entries for each day of leave"""
+        from .models import WorkLog
+        
+        current_date = leave.start_date
+        end_date = leave.end_date
+        
+        # Get expected hours from staff profile (default to 8)
+        expected_hours = float(leave.staff.expected_hours_per_day or 8.00)
+        
+        # Map leave type to description with emojis for better UX
+        leave_descriptions = {
+            'sick': '🏥 Sick Leave',
+            'vacation': '🌴 Vacation Leave',
+            'permission': '📋 Permission - Official',
+            'other': '📝 Approved Leave',
+        }
+        
+        description = leave_descriptions.get(leave.leave_type, '✅ Approved Leave')
+        
+        logs_created = 0
+        while current_date <= end_date:
+            # Check if it's a working day (Monday=0 to Friday=4)
+            # Uncomment if you want to exclude weekends
+            # if current_date.weekday() < 5:  # Weekdays only
+            
+            # Check if a log already exists for this date
+            existing_log = WorkLog.objects.filter(
+                staff=leave.staff,
+                date=current_date
+            ).first()
+            
+            if not existing_log:
+                # Create a full-day work log
+                WorkLog.objects.create(
+                    staff=leave.staff,
+                    date=current_date,
+                    description=description,
+                    hours=expected_hours,
+                    status='completed',
+                    is_locked=True,  # Auto-lock since it's approved leave
+                    start_time=time(8, 0),  # 8:00 AM
+                    end_time=time(17, 0),   # 5:00 PM
+                )
+                logs_created += 1
+            
+            current_date += timedelta(days=1)
+        
+        print(f"✅ Created {logs_created} leave work logs for {leave.staff}")
+
 class AdminSetupView(APIView):
     permission_classes = [permissions.IsAdminUser]
     
@@ -600,3 +701,85 @@ class AdminSetupView(APIView):
         profile.save()
         
         return Response({'status': 'success'})
+
+class AdminCreateStaffView(APIView):
+    """Admin: Create a new staff user and email credentials"""
+    permission_classes = [IsAdminUser]
+    
+    def post(self, request):
+        # Get data from request
+        first_name = request.data.get('first_name')
+        last_name = request.data.get('last_name')
+        email = request.data.get('email')
+        department = request.data.get('department', 'General')
+        password = request.data.get('password')
+        role = request.data.get('role', 'staff')
+        
+        # Validate required fields
+        if not first_name or not last_name or not email or not password:
+            return Response(
+                {'error': 'First name, last name, email, and password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user already exists
+        if User.objects.filter(email=email).exists():
+            return Response(
+                {'error': 'User with this email already exists'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Generate username from email
+        username = email.split('@')[0]
+        
+        # Make username unique if needed
+        base_username = username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+        
+        try:
+            # Create user
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                is_staff=(role == 'admin'),
+                is_superuser=(role == 'admin')
+            )
+            
+            # Create or update staff profile
+            from .models import StaffProfile
+            staff_profile, created = StaffProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'department': department,  # This will now work
+                    'expected_hours_per_day': 9.00,
+                    'is_active': True
+                }
+            )
+            
+            # If profile already exists, update department
+            if not created:
+                staff_profile.department = department
+                staff_profile.save()
+            
+            return Response({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'department': department,
+                'role': role,
+                'message': f'Staff created successfully. Login credentials sent to {email}'
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

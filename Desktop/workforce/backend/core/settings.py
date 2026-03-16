@@ -49,14 +49,22 @@ MIDDLEWARE = [
 ]
 
 # CORS settings
+# Add these with your other CORS settings
+
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite default
-    "http://localhost:3000",   # Create React App default
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
+    "http://localhost:3000",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Settings
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+]
 
 # REST Framework settings
 REST_FRAMEWORK = {
@@ -133,6 +141,14 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Email settings for production (using Gmail as example)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'oticgs@gmail.com'
+EMAIL_HOST_PASSWORD = 'pomw oobo tobc tbis'  # Use app password, not regular password
+DEFAULT_FROM_EMAIL = 'OTIC Workforce <noreply@otic.com>'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/

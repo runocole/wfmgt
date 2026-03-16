@@ -113,6 +113,7 @@ class StaffProfile(models.Model):
         default=8.00,
         validators=[MinValueValidator(0), MaxValueValidator(24)]
     )
+    department = models.CharField(max_length=100, blank=True, default='General')  # ADD THIS
     is_active = models.BooleanField(default=True)
     phone = models.CharField(max_length=20, blank=True)
     
@@ -127,8 +128,6 @@ class StaffProfile(models.Model):
     
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username}"
-
-
 
 class WorkLog(models.Model):
     """Main work log entries"""
@@ -149,7 +148,8 @@ class WorkLog(models.Model):
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     is_locked = models.BooleanField(default=False)  # Locked after 10pm
-    
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

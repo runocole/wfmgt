@@ -23,7 +23,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'company']
 
 # ============================================
-# WORK LOG SYSTEM ADMIN (FIXED)
+# WORK LOG SYSTEM ADMIN 
 # ============================================
 
 @admin.register(StaffProfile)

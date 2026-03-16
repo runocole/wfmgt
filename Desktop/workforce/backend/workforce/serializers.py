@@ -33,11 +33,20 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
+    full_name = serializers.SerializerMethodField()
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile']
-        read_only_fields = ['id']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 
+            'full_name', 'profile', 
+            'is_staff', 'is_superuser',  # Add these
+            'date_joined'
+        ]
+        read_only_fields = ['id', 'is_staff', 'is_superuser', 'date_joined']
+    
+    def get_full_name(self, obj):
+        return obj.get_full_name() or obj.username
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     app_details = AppSerializer(source='app', read_only=True)
@@ -100,15 +109,17 @@ class WorkLogSerializer(serializers.ModelSerializer):
     """Serializer for work log entries"""
     staff_name = serializers.SerializerMethodField()
     staff_username = serializers.CharField(source='staff.user.username', read_only=True)
+    startTime = serializers.TimeField(source='start_time', format='%H:%M', required=False, allow_null=True)
+    endTime = serializers.TimeField(source='end_time', format='%H:%M', required=False, allow_null=True)
     
     class Meta:
         model = WorkLog
         fields = [
             'id', 'staff', 'staff_name', 'staff_username', 'date',
-            'project', 'task', 'description', 'hours', 'status',
+            'startTime', 'endTime', 'description', 'hours', 'status',
             'is_locked', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['is_locked', 'created_at', 'updated_at']
+        read_only_fields = ['staff', 'is_locked', 'created_at', 'updated_at']
     
     def get_staff_name(self, obj):
         return str(obj.staff)
@@ -125,7 +136,7 @@ class WorkLogSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Cannot edit locked entries")
         
         return data
-
+    
 class DailyMetricSerializer(serializers.ModelSerializer):
     """Serializer for daily metrics"""
     staff_name = serializers.SerializerMethodField()
@@ -153,17 +164,16 @@ class LeaveSerializer(serializers.ModelSerializer):
             'start_date', 'end_date', 'duration_days', 'reason',
             'status', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['status', 'created_at', 'updated_at']
+        read_only_fields = ['staff', 'status', 'created_at', 'updated_at']
     
     def get_staff_name(self, obj):
         return str(obj.staff)
     
     def validate(self, data):
-        # Ensure end_date is after start_date
         if data['end_date'] < data['start_date']:
             raise serializers.ValidationError("End date must be after start date")
         return data
-
+    
 # ============================================
 # DASHBOARD AND ANALYTICS SERIALIZERS
 # ============================================

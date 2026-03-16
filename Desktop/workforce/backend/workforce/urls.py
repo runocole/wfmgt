@@ -28,7 +28,7 @@ urlpatterns = [
     
     # Staff Profile
     path('worklog/profile/', views.StaffProfileView.as_view(), name='worklog-profile'),
-    
+    path('worklog/staff-list/', views.StaffListView.as_view(), name='staff-list'),
     # Work Logs (Staff)
     path('worklog/entries/', views.WorkLogListCreateView.as_view(), name='worklog-list'),
     path('worklog/entries/<int:pk>/', views.WorkLogDetailView.as_view(), name='worklog-detail'),
@@ -45,7 +45,8 @@ urlpatterns = [
     # ============================================
     # ADMIN ENDPOINTS 
     # ============================================
-    
+    path('admin/worklog/staff/create/', views.AdminCreateStaffView.as_view(), name='admin-create-staff'),
+
     # Staff Management
     path('admin/worklog/staff/', views.AdminStaffListView.as_view(), name='admin-worklog-staff'),
     
