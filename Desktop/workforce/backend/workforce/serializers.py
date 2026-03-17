@@ -85,7 +85,6 @@ class LoginResponseSerializer(serializers.Serializer):
 # ============================================
 # WORK LOG SYSTEM SERIALIZERS
 # ============================================
-
 class StaffProfileSerializer(serializers.ModelSerializer):
     """Serializer for staff profile"""
     username = serializers.CharField(source='user.username', read_only=True)
@@ -93,12 +92,14 @@ class StaffProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     full_name = serializers.SerializerMethodField()
+    department = serializers.CharField(read_only=True)
     
     class Meta:
         model = StaffProfile
         fields = [
             'id', 'user', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'employee_id', 'hire_date', 'expected_hours_per_day', 
+            'department',
             'is_active', 'phone', 'receive_daily_reminder'
         ]
     
@@ -155,16 +156,17 @@ class DailyMetricSerializer(serializers.ModelSerializer):
 class LeaveSerializer(serializers.ModelSerializer):
     """Serializer for leave requests"""
     staff_name = serializers.SerializerMethodField()
+    staff_id = serializers.IntegerField(source='staff.id', read_only=True)  
     duration_days = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = Leave
         fields = [
-            'id', 'staff', 'staff_name', 'leave_type',
+            'id', 'staff', 'staff_id', 'staff_name', 'leave_type',  
             'start_date', 'end_date', 'duration_days', 'reason',
             'status', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['staff', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['staff', 'staff_id', 'status', 'created_at', 'updated_at']
     
     def get_staff_name(self, obj):
         return str(obj.staff)

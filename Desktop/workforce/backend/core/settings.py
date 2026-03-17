@@ -147,7 +147,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'oticgs@gmail.com'
-EMAIL_HOST_PASSWORD = 'pomw oobo tobc tbis'  # Use app password, not regular password
+EMAIL_HOST_PASSWORD = 'pomwoobotobctbis'  
 DEFAULT_FROM_EMAIL = 'OTIC Workforce <noreply@otic.com>'
 
 # Static files (CSS, JavaScript, Images)

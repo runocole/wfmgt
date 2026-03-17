@@ -1,5 +1,12 @@
 from django.urls import path
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.http import JsonResponse
 from . import views
+
+# CSRF token endpoint
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    return JsonResponse({'detail': 'CSRF cookie set'})
 
 urlpatterns = [
     # ============================================
@@ -11,6 +18,7 @@ urlpatterns = [
     path('auth/login/', views.LoginView.as_view(), name='login'),
     path('auth/logout/', views.LogoutView.as_view(), name='logout'),
     path('auth/me/', views.CurrentUserView.as_view(), name='current-user'),
+    path('auth/csrf/', get_csrf_token, name='csrf'),  # ADD THIS LINE
     
     # App endpoints
     path('apps/', views.AppListView.as_view(), name='app-list'),
@@ -46,7 +54,8 @@ urlpatterns = [
     # ADMIN ENDPOINTS 
     # ============================================
     path('admin/worklog/staff/create/', views.AdminCreateStaffView.as_view(), name='admin-create-staff'),
-
+    path('admin/worklog/export/', views.AdminExportView.as_view(), name='admin-export'),
+    
     # Staff Management
     path('admin/worklog/staff/', views.AdminStaffListView.as_view(), name='admin-worklog-staff'),
     
