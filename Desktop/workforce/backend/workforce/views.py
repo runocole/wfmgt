@@ -714,7 +714,7 @@ class AdminCreateStaffView(APIView):
                     
                     <p>For security reasons, we recommend changing your password after your first login.</p>
                     
-                    <p><strong>Login URL:</strong> <a href="http://localhost:5173">http://localhost:5173</a></p>
+                    <p><strong>Login URL:</strong> <a href="https://oticgs.com/workforce">https://oticgs.com/workforce</a></p>
                 </div>
                 <div class="footer">
                     <p>&copy; 2026 OTIC Workforce. All rights reserved.</p>
@@ -782,7 +782,7 @@ class AdminCreateStaffView(APIView):
             staff_profile = StaffProfile.objects.create(
                 user=user,
                 department=department,
-                expected_hours_per_day=9.00,
+                expected_hours_per_day=8.00,
                 is_active=True,
                 employee_id=self.generate_employee_id()
             )

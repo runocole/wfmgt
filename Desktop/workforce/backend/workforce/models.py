@@ -113,7 +113,7 @@ class StaffProfile(models.Model):
         default=8.00,
         validators=[MinValueValidator(0), MaxValueValidator(24)]
     )
-    department = models.CharField(max_length=100, blank=True, default='General')  # ADD THIS
+    department = models.CharField(max_length=100, blank=True, default='General')  
     is_active = models.BooleanField(default=True)
     phone = models.CharField(max_length=20, blank=True)
     
