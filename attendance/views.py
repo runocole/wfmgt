@@ -581,11 +581,14 @@ class AdminStaffMonthlyOverviewView(APIView):
             days_late = sum(1 for r in s_records if r['status'] == 'late')
             days_absent = max(0, total_working_days - days_present)
 
+            import pytz
+            org_tz = pytz.timezone(org.timezone or 'UTC')
+
             sign_in_seconds = []
             work_durations_hours = []
             for r in s_records:
                 if r['sign_in_time']:
-                    local = r['sign_in_time']
+                    local = r['sign_in_time'].astimezone(org_tz)
                     sign_in_seconds.append(local.hour * 3600 + local.minute * 60 + local.second)
                 if r['sign_in_time'] and r['sign_out_time']:
                     delta = (r['sign_out_time'] - r['sign_in_time']).total_seconds() / 3600
