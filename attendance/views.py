@@ -568,7 +568,7 @@ class AdminStaffMonthlyOverviewView(APIView):
         # One query for all records in range across all staff
         records = list(Attendance.objects.filter(
             staff__organization=org, date__range=[start_date, end_date]
-        ).values('staff_id', 'status', 'sign_in_time', 'sign_out_time'))
+        ).values('staff_id', 'status', 'sign_in_time', 'sign_out_time', 'attendance_grade'))
 
         by_staff = {}
         for r in records:
@@ -598,6 +598,9 @@ class AdminStaffMonthlyOverviewView(APIView):
 
             avg_work_hours = round(sum(work_durations_hours) / len(work_durations_hours), 1) if work_durations_hours else None
 
+            grades = [r['attendance_grade'] for r in s_records if r['attendance_grade'] is not None]
+            avg_grade = round(sum(grades) / len(grades), 2) if grades else None
+
             overview.append({
                 'staff_id': s.id,
                 'staff_name': str(s),
@@ -607,6 +610,7 @@ class AdminStaffMonthlyOverviewView(APIView):
                 'days_late': days_late,
                 'average_sign_in_time': avg_sign_in,
                 'average_work_hours': avg_work_hours,
+                'average_attendance_grade': avg_grade,
             })
 
         overview.sort(key=lambda x: x['days_late'], reverse=True)
