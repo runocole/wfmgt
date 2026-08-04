@@ -27,16 +27,20 @@ def check_geofence(staff_lat, staff_lng, organization):
 def determine_attendance_status(sign_in_time, organization):
     """
     Determines 'present' vs 'late' based on org's work_start_time + late_threshold_minutes.
-    sign_in_time: a timezone-aware datetime
+    sign_in_time: a timezone-aware datetime (typically UTC).
+    Converts to the organization's local timezone before comparing.
     """
-    work_start = organization.work_start_time  # a time object
+    import pytz
+    org_tz = pytz.timezone(organization.timezone or 'UTC')
+    local_sign_in = sign_in_time.astimezone(org_tz)
+
+    work_start = organization.work_start_time  # a time object, in org-local time
     threshold_minutes = organization.late_threshold_minutes
 
-    # Build the cutoff datetime on the same date as sign_in_time
-    cutoff_naive = datetime.combine(sign_in_time.date(), work_start) + timedelta(minutes=threshold_minutes)
-    cutoff = cutoff_naive.replace(tzinfo=sign_in_time.tzinfo)
+    cutoff_naive = datetime.combine(local_sign_in.date(), work_start) + timedelta(minutes=threshold_minutes)
+    cutoff = org_tz.localize(cutoff_naive)
 
-    if sign_in_time <= cutoff:
+    if local_sign_in <= cutoff:
         return 'present'
     return 'late'
 
