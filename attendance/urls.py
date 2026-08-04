@@ -23,4 +23,12 @@ urlpatterns = [
     # Staff-facing
     path('my/today/', views.MyTodayAttendanceView.as_view(), name='my-today-attendance'),
     path('my/history/', views.MyAttendanceHistoryView.as_view(), name='my-attendance-history'),
+
+    # Admin dashboard analytics
+    path('admin/summary/', views.AdminAttendanceSummaryView.as_view(), name='admin-attendance-summary'),
+    path('admin/trend/', views.AdminAttendanceTrendView.as_view(), name='admin-attendance-trend'),
+    path('admin/department-breakdown/', views.AdminDepartmentBreakdownView.as_view(), name='admin-department-breakdown'),
+    path('admin/monthly-overview/', views.AdminStaffMonthlyOverviewView.as_view(), name='admin-monthly-overview'),
+    path('admin/table/', views.AdminAttendanceTableView.as_view(), name='admin-attendance-table'),
+    path('admin/live-today/', views.AdminLiveTodayView.as_view(), name='admin-live-today'),
 ]
