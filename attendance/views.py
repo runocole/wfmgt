@@ -182,6 +182,8 @@ class AttendanceSignInView(APIView):
 
         serializer = SignInRequestSerializer(data=request.data)
         if not serializer.is_valid():
+            import logging
+            logging.getLogger(__name__).error(f"SignIn validation failed: {serializer.errors} | payload: {request.data}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         data = serializer.validated_data
 

@@ -32,8 +32,8 @@ class AttendanceSerializer(serializers.ModelSerializer):
 
 class SignInRequestSerializer(serializers.Serializer):
     """Payload for the geofence + biometric sign-in endpoint"""
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
     webauthn_credential_id = serializers.CharField(required=False, allow_blank=True)
     webauthn_authenticator_data = serializers.CharField(required=False, allow_blank=True)
     webauthn_client_data_json = serializers.CharField(required=False, allow_blank=True)
@@ -42,8 +42,8 @@ class SignInRequestSerializer(serializers.Serializer):
 
 class FieldClockInRequestSerializer(serializers.Serializer):
     """Payload for 'Not at Work' field clock-in"""
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
     reason = serializers.CharField(required=False, allow_blank=True)
 
 
