@@ -1,0 +1,26 @@
+# Environment
+.env
+*.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Django
+staticfiles/
+media/
+*.sqlite3
+
+# Data dumps / backups
+*.sql
+*.xlsx
+
+# Misc
+*.deb
+nohup.out
+gunicorn.ctl
+.DS_Store
+tances
+_archive/
