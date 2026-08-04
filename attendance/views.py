@@ -23,7 +23,7 @@ from .serializers import (
     AttendanceSerializer, SignInRequestSerializer,
     FieldClockInRequestSerializer, WebAuthnCredentialSerializer,
 )
-from .utils import check_geofence, determine_attendance_status
+from .utils import check_geofence, determine_attendance_status, calculate_attendance_grade
 
 RP_ID = "oticgs.com"
 RP_NAME = "OTIC Workforce"
@@ -230,6 +230,7 @@ class AttendanceSignInView(APIView):
 
         now = timezone.now()
         attendance_status = determine_attendance_status(now, org)
+        grade = calculate_attendance_grade(now, org)
 
         attendance = Attendance.objects.create(
             staff=staff,
@@ -244,6 +245,7 @@ class AttendanceSignInView(APIView):
             approval_status='not_required',
             status=attendance_status,
             distance_from_office_m=distance,
+            attendance_grade=grade,
         )
 
         return Response(AttendanceSerializer(attendance).data, status=status.HTTP_201_CREATED)
@@ -314,6 +316,7 @@ class FieldClockInView(APIView):
 
         now = timezone.now()
         attendance_status = determine_attendance_status(now, org)
+        grade = calculate_attendance_grade(now, org)
 
         attendance = Attendance.objects.create(
             staff=staff,
@@ -329,6 +332,7 @@ class FieldClockInView(APIView):
             reason=reason,
             status=attendance_status,
             distance_from_office_m=distance,
+            attendance_grade=grade,
         )
 
         return Response(AttendanceSerializer(attendance).data, status=status.HTTP_201_CREATED)
@@ -417,6 +421,7 @@ class AdminAttendanceSummaryView(APIView):
         present_today = today_records.filter(status='present').count()
         late_today = today_records.filter(status='late').count()
         signed_in_today = today_records.count()
+        signed_out_today = today_records.filter(sign_out_time__isnull=False).count()
         absent_today = max(0, total_staff - signed_in_today)
 
         attendance_rate = round((signed_in_today / total_staff * 100), 1) if total_staff > 0 else 0
@@ -427,6 +432,7 @@ class AdminAttendanceSummaryView(APIView):
             'late_today': late_today,
             'absent_today': absent_today,
             'signed_in_today': signed_in_today,
+            'signed_out_today': signed_out_today,
             'attendance_rate': attendance_rate,
         })
 

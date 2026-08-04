@@ -39,6 +39,7 @@ class Attendance(models.Model):
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='present')
     distance_from_office_m = models.FloatField(null=True, blank=True)
+    attendance_grade = models.FloatField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

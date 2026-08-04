@@ -55,3 +55,35 @@ def get_worklog_lock_time(organization):
     work_start = organization.work_start_time
     cutoff_naive = datetime.combine(datetime.today(), work_start) + timedelta(minutes=threshold_minutes)
     return work_start, cutoff_naive.time()
+
+
+def calculate_attendance_grade(sign_in_time, organization):
+    """
+    Grades sign-in time against HR's fixed time bands (local org time).
+    Returns a float grade 0.0-1.0 if within a defined band, or None if
+    signed in outside all bands (e.g. very late) or missing.
+    None means 'not graded' -- NOT the same as absent/zero. The person
+    still showed up, they just fall outside HR's graded window.
+    """
+    import pytz
+    if sign_in_time is None:
+        return None
+
+    org_tz = pytz.timezone(organization.timezone or 'UTC')
+    local_time = sign_in_time.astimezone(org_tz).time()
+
+    bands = [
+        (datetime.strptime('06:30', '%H:%M').time(), datetime.strptime('07:45', '%H:%M').time(), 1.0),
+        (datetime.strptime('07:46', '%H:%M').time(), datetime.strptime('08:00', '%H:%M').time(), 0.9),
+        (datetime.strptime('08:01', '%H:%M').time(), datetime.strptime('08:15', '%H:%M').time(), 0.75),
+        (datetime.strptime('08:16', '%H:%M').time(), datetime.strptime('08:30', '%H:%M').time(), 0.65),
+        (datetime.strptime('08:31', '%H:%M').time(), datetime.strptime('08:45', '%H:%M').time(), 0.5),
+        (datetime.strptime('08:46', '%H:%M').time(), datetime.strptime('09:00', '%H:%M').time(), 0.45),
+        (datetime.strptime('09:00', '%H:%M').time(), datetime.strptime('09:15', '%H:%M').time(), 0.25),
+    ]
+
+    for start, end, grade in bands:
+        if start <= local_time <= end:
+            return grade
+
+    return None
