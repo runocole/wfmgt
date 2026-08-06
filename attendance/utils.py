@@ -7,21 +7,29 @@ def calculate_distance_meters(lat1, lng1, lat2, lng2):
     return geodesic((float(lat1), float(lng1)), (float(lat2), float(lng2))).meters
 
 
-def check_geofence(staff_lat, staff_lng, organization):
+def check_geofence(staff_lat, staff_lng, organization, accuracy=None):
     """
     Checks whether staff coordinates fall within the organization's geofence.
-    Returns (is_within_geofence: bool, distance_m: float)
+    Returns (is_within_geofence: bool, distance_m: float, needs_better_gps: bool)
+
+    If the device's reported GPS accuracy is worse than MAX_ACCEPTABLE_ACCURACY,
+    we don't trust the reading enough to make a fraud-relevant decision either way
+    -- we ask for a retry instead of silently accepting a wide margin of error.
     """
+    MAX_ACCEPTABLE_ACCURACY = 30  # meters; readings worse than this are rejected
+
     if organization.office_latitude is None or organization.office_longitude is None:
-        # No geofence configured for this org — treat as not verifiable
-        return False, None
+        return False, None, False
+
+    if accuracy is not None and accuracy > MAX_ACCEPTABLE_ACCURACY:
+        return False, None, True
 
     distance = calculate_distance_meters(
         staff_lat, staff_lng,
         organization.office_latitude, organization.office_longitude
     )
     is_within = distance <= organization.geofence_radius_m
-    return is_within, round(distance, 1)
+    return is_within, round(distance, 1), False
 
 
 def determine_attendance_status(sign_in_time, organization):

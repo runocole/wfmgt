@@ -182,14 +182,16 @@ class AttendanceSignInView(APIView):
 
         serializer = SignInRequestSerializer(data=request.data)
         if not serializer.is_valid():
-            import logging
-            logging.getLogger(__name__).error(f"SignIn validation failed: {serializer.errors} | payload: {request.data}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         data = serializer.validated_data
 
         # 1. Geofence check
-        is_within, distance = check_geofence(data['latitude'], data['longitude'], org)
-
+        is_within, distance, needs_better_gps = check_geofence(data['latitude'], data['longitude'], org, data.get('accuracy'))
+        if needs_better_gps:
+            return Response({
+                'error': 'Your location signal is too weak right now. Please move near a window or outside briefly, then try again.',
+                'needs_better_gps': True,
+            }, status=status.HTTP_400_BAD_REQUEST)
         if not is_within:
             return Response({
                 'error': 'You are outside the office geofence. Use "Not at Work" clock-in if you are working remotely.',
@@ -305,11 +307,14 @@ class FieldClockInView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         data = serializer.validated_data
-
-        is_within, distance = check_geofence(data['latitude'], data['longitude'], org)
+        is_within, distance, needs_better_gps = check_geofence(data['latitude'], data['longitude'], org, data.get('accuracy'))
+        if needs_better_gps:
+            return Response({
+                'error': 'Your location signal is too weak right now. Please move near a window or outside briefly, then try again.',
+                'needs_better_gps': True,
+            }, status=status.HTTP_400_BAD_REQUEST)
         reason = data.get('reason', '').strip()
-
-        # Reason required only if they're > 15m away (per org policy — using geofence_radius_m as that threshold)
+        # Reason required only if they're outside the geofence (per org policy)
         if not is_within and not reason:
             return Response({
                 'error': 'A reason is required when clocking in from outside the office.',

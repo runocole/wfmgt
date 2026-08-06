@@ -34,6 +34,7 @@ class SignInRequestSerializer(serializers.Serializer):
     """Payload for the geofence + biometric sign-in endpoint"""
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
+    accuracy = serializers.FloatField(required=False, allow_null=True)
     webauthn_credential_id = serializers.CharField(required=False, allow_blank=True)
     webauthn_authenticator_data = serializers.CharField(required=False, allow_blank=True)
     webauthn_client_data_json = serializers.CharField(required=False, allow_blank=True)
@@ -44,6 +45,7 @@ class FieldClockInRequestSerializer(serializers.Serializer):
     """Payload for 'Not at Work' field clock-in"""
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
+    accuracy = serializers.FloatField(required=False, allow_null=True)
     reason = serializers.CharField(required=False, allow_blank=True)
 
 
