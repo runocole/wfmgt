@@ -728,3 +728,39 @@ class AdminStaffRankingView(APIView):
 
         ranking.sort(key=lambda x: x['average_sign_in_seconds'])
         return Response(ranking)
+
+
+class AdminStaffDetailView(APIView):
+    """Full day-by-day attendance record for one staff member, for a given month — audit drill-down"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, staff_id):
+        admin_staff = _get_staff(request)
+        org = admin_staff.organization if admin_staff else None
+        if not org:
+            return Response({'error': 'Organization not found for this admin.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            target_staff = StaffProfile.objects.select_related('user', 'department_fk').get(id=staff_id, organization=org)
+        except StaffProfile.DoesNotExist:
+            return Response({'error': 'Staff not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        today = get_org_today(org)
+        month_start = today.replace(day=1)
+        start_str = request.query_params.get('start_date', str(month_start))
+        end_str = request.query_params.get('end_date', str(today))
+        start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+
+        records = Attendance.objects.filter(
+            staff=target_staff, date__range=[start_date, end_date]
+        ).order_by('date')
+
+        return Response({
+            'staff_id': target_staff.id,
+            'staff_name': str(target_staff),
+            'department': target_staff.department_fk.name if target_staff.department_fk else (target_staff.department or 'General'),
+            'start_date': str(start_date),
+            'end_date': str(end_date),
+            'records': AttendanceSerializer(records, many=True).data,
+        })
