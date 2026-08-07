@@ -607,10 +607,8 @@ class AdminStaffMonthlyOverviewView(APIView):
                 avg_sign_in = f"{int(avg_sec // 3600):02d}:{int((avg_sec % 3600) // 60):02d}"
 
             avg_work_hours = round(sum(work_durations_hours) / len(work_durations_hours), 1) if work_durations_hours else None
-
             grades = [r['attendance_grade'] for r in s_records if r['attendance_grade'] is not None]
-            avg_grade = round(sum(grades) / len(grades), 2) if grades else None
-
+            total_grade = round(sum(grades), 2) if grades else None
             overview.append({
                 'staff_id': s.id,
                 'staff_name': str(s),
@@ -620,7 +618,8 @@ class AdminStaffMonthlyOverviewView(APIView):
                 'days_late': days_late,
                 'average_sign_in_time': avg_sign_in,
                 'average_work_hours': avg_work_hours,
-                'average_attendance_grade': avg_grade,
+                'total_attendance_grade': total_grade,
+                'max_possible_grade': total_working_days,
             })
 
         overview.sort(key=lambda x: x['days_late'], reverse=True)
