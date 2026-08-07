@@ -15,11 +15,11 @@ class AttendanceSerializer(serializers.ModelSerializer):
             'attendance_type', 'approval_status', 'reason',
             'approved_by', 'approved_at',
             'sign_out_time', 'sign_out_lat', 'sign_out_lng',
-            'status', 'distance_from_office_m',
+            'status', 'distance_from_office_m', 'attendance_grade',
             'created_at', 'updated_at',
         ]
         read_only_fields = [
-            'id', 'status', 'distance_from_office_m', 'geofence_verified',
+            'id', 'status', 'distance_from_office_m', 'attendance_grade', 'geofence_verified',
             'biometric_verified', 'approved_by', 'approved_at', 'created_at', 'updated_at',
         ]
 
