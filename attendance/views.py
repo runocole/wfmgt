@@ -423,7 +423,7 @@ class AdminAttendanceSummaryView(APIView):
             return Response({'error': 'Organization not found for this admin.'}, status=status.HTTP_404_NOT_FOUND)
 
         today = get_org_today(org)
-        total_staff = StaffProfile.objects.filter(organization=org, is_active=True).count()
+        total_staff = StaffProfile.objects.filter(organization=org, is_active=True).exclude(user__is_superuser=True).count()
 
         today_records = Attendance.objects.filter(staff__organization=org, date=today)
         present_today = today_records.filter(status='present').count()
@@ -456,7 +456,7 @@ class AdminAttendanceTrendView(APIView):
             return Response({'error': 'Organization not found for this admin.'}, status=status.HTTP_404_NOT_FOUND)
 
         days = int(request.query_params.get('days', 14))
-        total_staff = StaffProfile.objects.filter(organization=org, is_active=True).count()
+        total_staff = StaffProfile.objects.filter(organization=org, is_active=True).exclude(user__is_superuser=True).count()
         today = get_org_today(org)
 
         # Single query for the whole range — avoids N+1
@@ -506,7 +506,7 @@ class AdminDepartmentBreakdownView(APIView):
         today = get_org_today(org)
         start_date = today - timezone.timedelta(days=days - 1)
 
-        staff_qs = StaffProfile.objects.filter(organization=org, is_active=True).select_related('department_fk')
+        staff_qs = StaffProfile.objects.filter(organization=org, is_active=True).exclude(user__is_superuser=True).select_related('department_fk')
         records = Attendance.objects.filter(
             staff__organization=org, date__range=[start_date, today]
         ).values('staff_id', 'status')
@@ -571,7 +571,7 @@ class AdminStaffMonthlyOverviewView(APIView):
                 total_working_days += 1
             d += timezone.timedelta(days=1)
 
-        staff_qs = StaffProfile.objects.filter(organization=org, is_active=True).select_related('user', 'department_fk')
+        staff_qs = StaffProfile.objects.filter(organization=org, is_active=True).exclude(user__is_superuser=True).select_related('user', 'department_fk')
 
         # One query for all records in range across all staff
         records = list(Attendance.objects.filter(
@@ -677,3 +677,54 @@ class AdminLiveTodayView(APIView):
         ).select_related('staff__user', 'staff__department_fk').order_by('sign_in_time')
 
         return Response(AttendanceSerializer(today_records, many=True).data)
+
+
+class AdminStaffRankingView(APIView):
+    """Staff ranked by average sign-in time, earliest first — for horizontal bar chart"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        staff = _get_staff(request)
+        org = staff.organization if staff else None
+        if not org:
+            return Response({'error': 'Organization not found for this admin.'}, status=status.HTTP_404_NOT_FOUND)
+
+        days = int(request.query_params.get('days', 30))
+        today = get_org_today(org)
+        start_date = today - timezone.timedelta(days=days - 1)
+
+        import pytz
+        org_tz = pytz.timezone(org.timezone or 'UTC')
+
+        staff_qs = StaffProfile.objects.filter(
+            organization=org, is_active=True
+        ).exclude(user__is_superuser=True).select_related('user')
+
+        records = list(Attendance.objects.filter(
+            staff__organization=org, date__range=[start_date, today], sign_in_time__isnull=False
+        ).values('staff_id', 'sign_in_time'))
+
+        by_staff = {}
+        for r in records:
+            by_staff.setdefault(r['staff_id'], []).append(r['sign_in_time'])
+
+        ranking = []
+        for s in staff_qs:
+            times = by_staff.get(s.id, [])
+            if not times:
+                continue
+            seconds = [
+                (t.astimezone(org_tz).hour * 3600 + t.astimezone(org_tz).minute * 60 + t.astimezone(org_tz).second)
+                for t in times
+            ]
+            avg_sec = sum(seconds) / len(seconds)
+            ranking.append({
+                'staff_id': s.id,
+                'staff_name': str(s),
+                'average_sign_in_seconds': avg_sec,
+                'average_sign_in_time': f"{int(avg_sec // 3600):02d}:{int((avg_sec % 3600) // 60):02d}",
+                'days_recorded': len(times),
+            })
+
+        ranking.sort(key=lambda x: x['average_sign_in_seconds'])
+        return Response(ranking)

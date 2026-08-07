@@ -26,6 +26,7 @@ urlpatterns = [
 
     # Admin dashboard analytics
     path('admin/summary/', views.AdminAttendanceSummaryView.as_view(), name='admin-attendance-summary'),
+    path('admin/staff-ranking/', views.AdminStaffRankingView.as_view(), name='admin-staff-ranking'),
     path('admin/trend/', views.AdminAttendanceTrendView.as_view(), name='admin-attendance-trend'),
     path('admin/department-breakdown/', views.AdminDepartmentBreakdownView.as_view(), name='admin-department-breakdown'),
     path('admin/monthly-overview/', views.AdminStaffMonthlyOverviewView.as_view(), name='admin-monthly-overview'),
