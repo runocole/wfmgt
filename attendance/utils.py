@@ -95,3 +95,15 @@ def calculate_attendance_grade(sign_in_time, organization):
             return grade
 
     return None
+
+
+def get_org_today(organization):
+    """
+    Returns 'today' as a date object in the organization's local timezone,
+    not the server's raw UTC date. Prevents attendance records from being
+    stamped with the wrong calendar day near midnight UTC boundaries.
+    """
+    import pytz
+    from django.utils import timezone as django_timezone
+    org_tz = pytz.timezone(organization.timezone or 'UTC')
+    return django_timezone.now().astimezone(org_tz).date()

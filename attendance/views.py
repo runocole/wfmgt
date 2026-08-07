@@ -23,7 +23,7 @@ from .serializers import (
     AttendanceSerializer, SignInRequestSerializer,
     FieldClockInRequestSerializer, WebAuthnCredentialSerializer,
 )
-from .utils import check_geofence, determine_attendance_status, calculate_attendance_grade
+from .utils import check_geofence, determine_attendance_status, calculate_attendance_grade, get_org_today
 
 RP_ID = "oticgs.com"
 RP_NAME = "OTIC Workforce"
@@ -175,7 +175,7 @@ class AttendanceSignInView(APIView):
             return Response({'error': 'Staff profile or organization not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         org = staff.organization
-        today = date.today()
+        today = get_org_today(org)
 
         if Attendance.objects.filter(staff=staff, date=today).exists():
             return Response({'error': 'Already signed in today.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -263,7 +263,8 @@ class AttendanceSignOutView(APIView):
         if not staff or not staff.organization:
             return Response({'error': 'Staff profile or organization not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        today = date.today()
+        org = staff.organization
+        today = get_org_today(org)
         try:
             attendance = Attendance.objects.get(staff=staff, date=today)
         except Attendance.DoesNotExist:
@@ -298,7 +299,7 @@ class FieldClockInView(APIView):
             return Response({'error': 'Staff profile or organization not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         org = staff.organization
-        today = date.today()
+        today = get_org_today(org)
 
         if Attendance.objects.filter(staff=staff, date=today).exists():
             return Response({'error': 'Already clocked in today.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -421,7 +422,7 @@ class AdminAttendanceSummaryView(APIView):
         if not org:
             return Response({'error': 'Organization not found for this admin.'}, status=status.HTTP_404_NOT_FOUND)
 
-        today = date.today()
+        today = get_org_today(org)
         total_staff = StaffProfile.objects.filter(organization=org, is_active=True).count()
 
         today_records = Attendance.objects.filter(staff__organization=org, date=today)
@@ -456,7 +457,7 @@ class AdminAttendanceTrendView(APIView):
 
         days = int(request.query_params.get('days', 14))
         total_staff = StaffProfile.objects.filter(organization=org, is_active=True).count()
-        today = date.today()
+        today = get_org_today(org)
 
         # Single query for the whole range — avoids N+1
         start_date = today - timezone.timedelta(days=days - 1)
@@ -502,7 +503,7 @@ class AdminDepartmentBreakdownView(APIView):
             return Response({'error': 'Organization not found for this admin.'}, status=status.HTTP_404_NOT_FOUND)
 
         days = int(request.query_params.get('days', 30))
-        today = date.today()
+        today = get_org_today(org)
         start_date = today - timezone.timedelta(days=days - 1)
 
         staff_qs = StaffProfile.objects.filter(organization=org, is_active=True).select_related('department_fk')
@@ -554,7 +555,7 @@ class AdminStaffMonthlyOverviewView(APIView):
         if not org:
             return Response({'error': 'Organization not found for this admin.'}, status=status.HTTP_404_NOT_FOUND)
 
-        today = date.today()
+        today = get_org_today(org)
         month_start = today.replace(day=1)
         start_str = request.query_params.get('start_date', str(month_start))
         end_str = request.query_params.get('end_date', str(today))
